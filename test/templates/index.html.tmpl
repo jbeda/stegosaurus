@@ -1,0 +1,14 @@
+---
+title: "Custom title!"
+content: 
+  - "Item 1"
+  - "Item 2"
+---
+{{define "content"}}
+<h1>This is some content!</h1>
+<ul>
+  {{range .content}}
+  <li>{{.}}</li>
+  {{end}}
+{{end}}
+{{template "base" .}}
