@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	"io"
@@ -12,14 +13,16 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-	"k8s.io/kubernetes/pkg/conversion"
 )
 
 const contextFilename = "context.yml"
-const templateDir = "templates"
-const outputDir = "output"
+
+var sourceDir = flag.String("source", "templates", "The directory to walk for source templates and files.")
+var outputDir = flag.String("destination", "output", "The directory for all output.  It will be created if it doesn't exist.")
 
 func main() {
+	flag.Parse()
+
 	context := loadContext()
 
 	t := template.New("<root>")
@@ -34,11 +37,11 @@ func main() {
 	}
 }
 
-// loadTemplates walks templateDir and loads all base templates into t.  These
+// loadTemplates walks sourceDir and loads all base templates into t.  These
 // are files that have a '.tmpl' extensions and a leading underscore.  The
 // template name is the filename with those stripped.
 func loadBaseTemplates(t *template.Template) error {
-	return filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(*sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -71,7 +74,7 @@ func loadBaseTemplates(t *template.Template) error {
 	})
 }
 
-// evalTemplates walks templateDir and either copies files or evaluates
+// evalTemplates walks sourceDir and either copies files or evaluates
 // templates.  The results are put into outputDir Anything that has a '.tmpl'
 // extension but no leading underscore is evaluated.  Any non-template file is
 // just copied.
@@ -79,7 +82,7 @@ func loadBaseTemplates(t *template.Template) error {
 // Template files are preprocessed first to extract an optional leading YAML
 // document.  This is merged into the template evaluation context.
 func evalTemplates(t *template.Template, context interface{}) error {
-	return filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(*sourceDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -95,11 +98,11 @@ func evalTemplates(t *template.Template, context interface{}) error {
 		}
 
 		// Find where we are going to put this output
-		rel, err := filepath.Rel(templateDir, path)
+		rel, err := filepath.Rel(*sourceDir, path)
 		if err != nil {
 			return err
 		}
-		output := filepath.Join(outputDir, rel)
+		output := filepath.Join(*outputDir, rel)
 
 		ext := filepath.Ext(basename)
 		if ext == ".tmpl" {
@@ -161,7 +164,7 @@ func processFrontmatter(data []byte, context interface{}) ([]byte, interface{}, 
 	if fmStart == nil || fmStart[0] != 0 {
 		return data, context, nil
 	}
-	retData := data[fmStart[1]:]
+	retData := data[fmStart[1]+1:]
 	fmEnd := r.FindIndex(retData)
 	if fmEnd == nil {
 		return nil, nil, fmt.Errorf("Cannot find end of front matter.")
@@ -170,18 +173,25 @@ func processFrontmatter(data []byte, context interface{}) ([]byte, interface{}, 
 	fmData := retData[0:fmEnd[0]]
 	retData = retData[fmEnd[1]:]
 
-	// Clone the context and update it with the front matter.
-	cloner := conversion.NewCloner()
-	retContext, err := cloner.DeepCopy(context)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = yaml.Unmarshal(fmData, &retContext)
+	retContext := dumbClone(context)
+	err := yaml.Unmarshal(fmData, &retContext)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return retData, retContext, nil
+}
+
+// dumbClone does a simple clone by serializing to yaml and reparsing.  This
+// only works when the top level thing is a map.
+func dumbClone(in interface{}) map[interface{}]interface{} {
+	s, err := yaml.Marshal(in)
+	if err != nil {
+		panic(err)
+	}
+	out := make(map[interface{}]interface{})
+	err = yaml.Unmarshal(s, &out)
+	return out
 }
 
 // copyFile copies a file from path to output.  It makes no attempt to handle

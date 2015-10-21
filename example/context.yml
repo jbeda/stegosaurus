@@ -1,0 +1,11 @@
+title: "Default title"
+year: 2015
+author: "Joe Beda"
+navCurrent: ""
+navbar:
+  - text: home
+    url: "/"
+  - text: about
+    url: about.html
+  - text: "@jbeda"
+    url: "https://twitter.com/jbeda"

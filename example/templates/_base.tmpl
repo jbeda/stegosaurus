@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>{{.title}}</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <ul class=nav>
+    {{range .navbar}}
+      <li {{if eq $.navCurrent .text}}class="active"{{end}}><a href="{{.url}}">{{.text}}</a></li>
+    {{end}}
+    </ul>
+    <h1>{{.title}}</h1>
+    {{template "content" . }}
+    <div class="copyright">&copy; {{.year}} {{.author}}</div>
+  </body>
+</html>
+
+{{define "content"}}{{end}}

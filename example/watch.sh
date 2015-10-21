@@ -1,0 +1,1 @@
+fswatch -o context.yml templates | xargs -tn 1 -I {} go run ../stegosaurus.go
